@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube</title>
+  <style>
+    :root {
+      font-family: Arial, "Malgun Gothic", sans-serif;
+      color: #0f0f0f;
+      background: #f1f3f4;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: #fff; }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    [hidden] { display: none !important; }
+
+    /* A believable browser frame, so the game starts as an ordinary browsing session. */
+    .browser {
+      min-height: 100vh;
+      background: #fff;
+    }
+    .tab-strip {
+      display: flex;
+      height: 39px;
+      align-items: end;
+      gap: 5px;
+      padding: 5px 9px 0;
+      background: #dee1e6;
+    }
+    .tab {
+      display: flex;
+      width: min(220px, 42vw);
+      height: 34px;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      overflow: hidden;
+      border: 0;
+      border-radius: 9px 9px 0 0;
+      color: #44474d;
+      background: #c9cdd3;
+      font-size: 12px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .tab.active { color: #25272a; background: white; }
+    .tab:hover:not(.active) { background: #d7d9de; }
+    .tab-icon { font-size: 14px; }
+    .browser-controls {
+      display: flex;
+      height: 48px;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      background: white;
+    }
+    .browser-nav { display: flex; gap: 14px; color: #62656b; font-size: 18px; }
+    .address {
+      display: flex;
+      height: 34px;
+      flex: 1;
+      align-items: center;
+      gap: 8px;
+      padding: 0 13px;
+      border-radius: 20px;
+      color: #4a4e54;
+      background: #f1f3f4;
+      font-size: 12px;
+    }
+    .address-lock { color: #25885a; }
+    .browser-profile { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; color: white; background: #6a83ba; font-size: 12px; }
+
+    .site-view { min-height: calc(100vh - 87px); }
+    .yt-header {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      display: flex;
+      height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 clamp(16px, 4vw, 48px);
+      background: #fff;
+    }
+    .yt-logo { display: flex; align-items: center; gap: 7px; color: #0f0f0f; font-size: 19px; font-weight: 800; letter-spacing: -1px; white-space: nowrap; }
+    .yt-mark { display: grid; width: 30px; height: 21px; place-items: center; border-radius: 7px; color: white; background: #f03; font-size: 12px; }
+    .yt-search { display: flex; width: min(490px, 50vw); height: 38px; }
+    .yt-search input { min-width: 0; flex: 1; padding: 0 16px; border: 1px solid #c6c6c6; border-radius: 22px 0 0 22px; outline: none; font-size: 14px; }
+    .yt-search button { width: 62px; border: 1px solid #c6c6c6; border-left: 0; border-radius: 0 22px 22px 0; background: #f8f8f8; cursor: pointer; }
+    .yt-avatar { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 50%; color: white; background: #9167a8; font-size: 12px; }
+    .yt-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+    .yt-sidebar { padding: 10px 12px; }
+    .yt-side-link { display: flex; height: 42px; align-items: center; gap: 19px; padding: 0 12px; border-radius: 9px; color: #222; font-size: 13px; }
+    .yt-side-link.selected { background: #f2f2f2; font-weight: 700; }
+    .yt-side-link b { width: 17px; font-size: 17px; text-align: center; }
+    .yt-main { min-width: 0; padding: 24px clamp(16px, 3vw, 42px) 40px; }
+    .video-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; max-width: 1320px; margin: auto; }
+    .watch-column { min-width: 0; }
+    .video-player {
+      position: relative;
+      display: grid;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      place-items: center;
+      border-radius: 12px;
+      color: white;
+      background: #16191d;
+      isolation: isolate;
+    }
+    .video-scene {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background:
+        radial-gradient(ellipse at 70% 44%, rgba(251,187,115,.95) 0 2%, transparent 24%),
+        linear-gradient(160deg, transparent 38%, rgba(8,20,36,.25) 39% 48%, transparent 49%),
+        linear-gradient(180deg, #354f69 0%, #d39472 48%, #364e52 49%, #172b3b 100%);
+    }
+    .video-scene::before, .video-scene::after {
+      position: absolute;
+      right: -5%;
+      bottom: 17%;
+      left: -5%;
+      height: 38%;
+      border-radius: 50% 50% 0 0;
+      background: #213d44;
+      content: "";
+      transform: rotate(-4deg);
+    }
+    .video-scene::after { right: 35%; bottom: 11%; left: -20%; height: 31%; background: #152b37; transform: rotate(7deg); }
+    .video-play {
+      display: grid;
+      width: 66px;
+      height: 48px;
+      place-items: center;
+      border: 0;
+      border-radius: 14px;
+      color: white;
+      background: rgba(15,15,15,.8);
+      font-size: 22px;
+      cursor: pointer;
+    }
+    .video-play:hover { background: #f03; }
+    .video-caption { position: absolute; right: 18px; bottom: 43px; left: 18px; color: white; font-size: clamp(14px, 2vw, 22px); font-weight: 800; text-shadow: 0 2px 6px #000; pointer-events: none; }
+    .video-controls { position: absolute; right: 14px; bottom: 10px; left: 14px; display: flex; align-items: center; gap: 10px; color: white; font-size: 11px; }
+    .video-track { height: 3px; flex: 1; overflow: hidden; background: rgba(255,255,255,.35); }
+    .video-progress { width: 0; height: 100%; background: #f03; transition: width .4s linear; }
+    .video-player.is-playing .video-play { opacity: 0; }
+    .video-player.is-playing:hover .video-play { opacity: .9; }
+    .video-ad {
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 20px;
+      background: linear-gradient(0deg, rgba(0,0,0,.92), rgba(0,0,0,.08) 80%), rgba(14,18,24,.24);
+      animation: ad-arrive .25s ease-out both;
+    }
+    .video-ad-copy { align-self: end; max-width: 65%; }
+    .video-ad-label { margin-bottom: 5px; color: #ffe486; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
+    .video-ad-title { margin: 0 0 5px; font-size: clamp(15px, 2vw, 23px); }
+    .video-ad-copy p { margin: 0; color: #ddd; font-size: 12px; }
+    .skip-ad {
+      align-self: end;
+      min-width: 122px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.85);
+      border-radius: 3px;
+      color: white;
+      background: rgba(0,0,0,.5);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .skip-ad:disabled { border-color: rgba(255,255,255,.3); color: #bbb; cursor: wait; }
+    .ad-countdown { position: absolute; top: 14px; right: 15px; padding: 5px 8px; border-radius: 3px; color: white; background: rgba(0,0,0,.68); font-size: 11px; }
+    .video-title { margin: 14px 0 8px; font-size: 18px; }
+    .creator-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .creator { display: flex; align-items: center; gap: 11px; }
+    .creator-avatar { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 50%; color: white; background: #426b67; font-weight: 800; }
+    .creator-name { font-size: 13px; font-weight: 700; }
+    .creator-subs { margin-top: 3px; color: #606060; font-size: 11px; }
+    .subscribe { padding: 10px 16px; border: 0; border-radius: 20px; color: white; background: #0f0f0f; font-size: 12px; font-weight: 700; }
+    .video-description { margin-top: 13px; padding: 12px; border-radius: 11px; background: #f2f2f2; font-size: 12px; line-height: 1.7; }
+    .recommendations { display: grid; align-content: start; gap: 12px; }
+    .recommend-card { display: grid; grid-template-columns: 135px 1fr; gap: 9px; font-size: 11px; }
+    .recommend-thumb { display: grid; aspect-ratio: 16 / 9; place-items: center; border-radius: 7px; color: white; background: linear-gradient(135deg,#66888a,#d9a16d 55%,#263d55); font-size: 22px; }
+    .recommend-card:nth-child(2) .recommend-thumb { background: linear-gradient(135deg,#b04f42,#e7b77a 60%,#4c323e); }
+    .recommend-card:nth-child(3) .recommend-thumb { background: linear-gradient(135deg,#42658a,#bb5c70 58%,#25324d); }
+    .recommend-card strong { display: block; line-height: 1.45; }
+    .recommend-card small { display: block; margin-top: 5px; color: #606060; line-height: 1.4; }
+
+    .wiki-header { display: flex; align-items: center; gap: 20px; padding: 18px clamp(18px, 5vw, 72px); border-bottom: 1px solid #ddd; color: #333; }
+    .wiki-logo { color: #315d8a; font-family: Georgia, serif; font-size: 25px; font-weight: 800; }
+    .wiki-search { flex: 1; max-width: 540px; padding: 9px 12px; border: 1px solid #aeb8c2; border-radius: 3px; font-size: 13px; }
+    .wiki-nav { padding: 11px clamp(18px, 5vw, 72px); border-bottom: 1px solid #ddd; color: #555; background: #f8f9fa; font-size: 12px; }
+    .wiki-nav span { margin-right: 22px; }
+    .wiki-main { position: relative; min-height: calc(100vh - 180px); padding: 28px 20px 70px; background: #fafafa; }
+    .wiki-article { width: min(740px, 100%); min-height: 560px; margin: 0 auto; padding: 26px 34px; border: 1px solid #c8ccd1; background: white; font-family: Arial, "Malgun Gothic", sans-serif; font-size: 14px; line-height: 1.85; }
+    .wiki-article h1 { margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid #aaa; font-family: Georgia, "Malgun Gothic", serif; font-size: 27px; }
+    .wiki-meta { color: #72777d; font-size: 11px; }
+    .wiki-toc { float: right; width: 185px; margin: 0 0 16px 18px; padding: 12px; border: 1px solid #a2a9b1; background: #f8f9fa; font-size: 12px; line-height: 1.8; }
+    .wiki-toc strong { display: block; text-align: center; }
+    .wiki-article h2 { margin-top: 28px; padding-bottom: 4px; border-bottom: 1px solid #aaa; font-size: 19px; }
+    .wiki-article p { color: #333; }
+    .wiki-link { color: #0645ad; text-decoration: underline; }
+    .wiki-side-ad {
+      position: absolute;
+      z-index: 2;
+      top: 82px;
+      width: clamp(160px, 18vw, 220px);
+      padding: 12px;
+      border: 1px solid #d6a23e;
+      border-radius: 4px;
+      color: #242424;
+      background: #fffdf4;
+      box-shadow: 0 5px 18px rgba(0,0,0,.13);
+      animation: ad-arrive .3s ease-out both;
+    }
+    .wiki-side-ad.left { left: max(10px, calc((100% - 1140px) / 2)); }
+    .wiki-side-ad.right { right: max(10px, calc((100% - 1140px) / 2)); }
+    .wiki-ad-head { display: flex; justify-content: space-between; gap: 5px; color: #8b6718; font-size: 10px; }
+    .wiki-ad-head button { border: 0; color: #555; background: none; font-size: 18px; cursor: pointer; }
+    .wiki-side-ad strong { display: block; margin: 6px 0; font-size: 14px; }
+    .wiki-side-ad p { margin: 0; color: #555; font-size: 11px; line-height: 1.5; }
+    .wiki-ad-cta { display: block; margin-top: 8px; padding: 6px; border-radius: 3px; color: white; background: #b57e27; font-size: 10px; text-align: center; }
+    .wiki-side-ad.corrupting { border-color: #df3838; background: #fff0ef; }
+    .wiki-corruption { display: none; padding: 11px; border-left: 4px solid #d33; color: #851b1b; background: #fff0ef; font-weight: 700; }
+    .wiki-article.corrupted .wiki-corruption { display: block; }
+    .wiki-article.corrupted #wikiParagraph { color: #a31818; text-decoration: line-through; }
+
+    .survival-hud {
+      position: fixed;
+      z-index: 10;
+      top: 12px;
+      right: 14px;
+      display: none;
+      align-items: center;
+      gap: 7px;
+      padding: 7px;
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 10px;
+      color: #fff;
+      background: rgba(20,25,32,.92);
+      box-shadow: 0 5px 22px rgba(0,0,0,.22);
+      font-size: 10px;
+    }
+    .survival-hud.active { display: flex; }
+    .hud-chip { min-width: 60px; padding: 2px 7px; }
+    .hud-chip small { display: block; color: #b6c1ce; font-size: 8px; letter-spacing: .1em; }
+    .hud-chip b { font-size: 13px; }
+    .hud-health { color: #ff8e9c; }
+    .hud-xp { color: #75f0d7; }
+    .hud-progress { width: 54px; height: 4px; margin-top: 3px; overflow: hidden; border-radius: 4px; background: #47515e; }
+    .hud-progress i { display: block; width: 100%; height: 100%; background: #6ee2ce; transition: width .2s; }
+    .game-message {
+      position: fixed;
+      z-index: 9;
+      top: 70px;
+      left: 50%;
+      max-width: calc(100vw - 24px);
+      padding: 8px 13px;
+      transform: translateX(-50%);
+      border-radius: 18px;
+      color: white;
+      background: rgba(19,23,29,.84);
+      font-size: 11px;
+      text-align: center;
+      pointer-events: none;
+    }
+    .game-message:empty { display: none; }
+    .toast {
+      position: fixed;
+      z-index: 20;
+      top: 100px;
+      left: 50%;
+      padding: 10px 17px;
+      transform: translate(-50%, -10px);
+      border: 1px solid #7af2dc;
+      border-radius: 9px;
+      color: #dcfff9;
+      background: #153d3b;
+      font-size: 12px;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .toast.show { animation: toast 2s ease both; }
+    .end-screen {
+      position: fixed;
+      z-index: 30;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(12,16,24,.75);
+      backdrop-filter: blur(5px);
+    }
+    .end-card { width: min(400px, 100%); padding: 28px; border: 1px solid #5fe5d0; border-radius: 14px; color: #f6f7f9; background: #1d2735; text-align: center; }
+    .end-card h2 { margin: 0 0 9px; font-size: 27px; }
+    .end-card p { color: #c5d0dc; font-size: 13px; line-height: 1.7; }
+    .end-card button { padding: 10px 18px; border: 0; border-radius: 5px; color: white; background: #205da8; cursor: pointer; }
+    .invasion-flash { animation: screen-shake .35s ease both; }
+    @keyframes ad-arrive { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    @keyframes toast { 0% { opacity: 0; transform: translate(-50%,-10px); } 15%,78% { opacity: 1; transform: translate(-50%,0); } 100% { opacity: 0; } }
+    @keyframes screen-shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+
+    @media (max-width: 950px) {
+      .yt-body { grid-template-columns: 72px minmax(0,1fr); }
+      .yt-side-link { justify-content: center; padding: 0; font-size: 0; }
+      .yt-side-link b { font-size: 18px; }
+      .video-layout { grid-template-columns: minmax(0,1fr); }
+      .recommendations { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .wiki-side-ad.left { left: 5px; }
+      .wiki-side-ad.right { right: 5px; }
+      .wiki-side-ad { width: 155px; }
+    }
+    @media (max-width: 620px) {
+      .browser-controls { height: 42px; padding: 0 10px; }
+      .browser-nav { gap: 8px; }
+      .tab { font-size: 11px; }
+      .yt-header { height: 50px; gap: 8px; padding: 0 11px; }
+      .yt-logo { font-size: 15px; }
+      .yt-mark { width: 25px; height: 18px; }
+      .yt-search { width: auto; flex: 1; }
+      .yt-search input { padding: 0 9px; font-size: 12px; }
+      .yt-search button { width: 38px; }
+      .yt-avatar { width: 27px; height: 27px; }
+      .yt-body { grid-template-columns: 1fr; }
+      .yt-sidebar { display: none; }
+      .yt-main { padding: 12px 0 30px; }
+      .video-layout { gap: 10px; }
+      .video-player { border-radius: 0; }
+      .video-title, .creator-row, .video-description { margin-right: 12px; margin-left: 12px; }
+      .video-title { font-size: 15px; }
+      .recommendations { gap: 8px; padding: 0 12px; }
+      .recommend-card { grid-template-columns: 1fr; }
+      .recommend-card:nth-child(n+3) { display: none; }
+      .recommend-thumb { font-size: 16px; }
+      .recommend-card strong { font-size: 10px; }
+      .subscribe { padding: 8px 11px; }
+      .wiki-header { gap: 10px; padding: 12px; }
+      .wiki-logo { font-size: 19px; }
+      .wiki-search { min-width: 0; padding: 8px; font-size: 11px; }
+      .wiki-nav { padding: 9px 12px; font-size: 10px; }
+      .wiki-nav span { margin-right: 10px; }
+      .wiki-main { padding: 12px 8px 45px; }
+      .wiki-article { padding: 16px; font-size: 13px; }
+      .wiki-article h1 { font-size: 22px; }
+      .wiki-toc { width: 145px; margin-left: 10px; font-size: 10px; }
+      .wiki-side-ad { position: relative; top: auto; left: auto !important; right: auto !important; width: calc(50% - 8px); min-height: 122px; display: inline-block; vertical-align: top; margin: 0 3px 9px; }
+      .survival-hud { top: 5px; right: 5px; gap: 1px; padding: 4px; }
+      .hud-chip { min-width: 47px; padding: 2px 4px; }
+      .hud-chip b { font-size: 11px; }
+      .hud-progress { width: 40px; }
+      .game-message { top: 51px; font-size: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="browser">
+    <div class="tab-strip" aria-label="브라우저 탭">
+      <button class="tab active" id="youtubeTab" type="button"><span class="tab-icon">▶</span> YouTube · 잔잔한 음악 모음</button>
+      <button class="tab" id="wikiTab" type="button"><span class="tab-icon">W</span> 나무위키: 인터넷</button>
+      <span style="padding:0 10px 8px;color:#686b70">＋</span>
+    </div>
+    <div class="browser-controls">
+      <div class="browser-nav" aria-hidden="true"><span>‹</span><span>›</span><span>↻</span></div>
+      <div class="address"><span class="address-lock">●</span><span id="addressText">youtube.com/watch?v=quiet-morning</span></div>
+      <div class="browser-profile" title="프로필">D</div>
+    </div>
+
+    <section class="site-view" id="youtubeView">
+      <header class="yt-header">
+        <div class="yt-logo"><span class="yt-mark">▶</span>YouTube</div>
+        <form class="yt-search" id="ytSearch"><input placeholder="검색" aria-label="검색"><button type="submit" aria-label="검색">⌕</button></form>
+        <div class="yt-avatar">D</div>
+      </header>
+      <div class="yt-body">
+        <aside class="yt-sidebar">
+          <div class="yt-side-link selected"><b>⌂</b>홈</div>
+          <div class="yt-side-link"><b>◉</b>Shorts</div>
+          <div class="yt-side-link"><b>▣</b>구독</div>
+          <hr style="border:0;border-top:1px solid #eee">
+          <div class="yt-side-link"><b>▤</b>내 페이지</div>
+          <div class="yt-side-link"><b>◷</b>시청 기록</div>
+          <div class="yt-side-link"><b>♡</b>좋아요 표시한 동영상</div>
+        </aside>
+        <div class="yt-main">
+          <div class="video-layout">
+            <section class="watch-column">
+              <div class="video-player" id="videoPlayer">
+                <div class="video-scene"></div>
+                <button class="video-play" id="videoPlay" type="button" aria-label="동영상 재생">▶</button>
+                <div class="video-caption">아무 생각 없이 듣기 좋은 새벽 플레이리스트</div>
+                <div class="video-controls"><span id="videoTime">0:00</span><div class="video-track"><div class="video-progress" id="videoProgress"></div></div><span>12:40</span><span>⚙</span></div>
+              </div>
+              <h1 class="video-title">아무 생각 없이 듣기 좋은 새벽 플레이리스트 🌙 | 1시간 감성 음악</h1>
+              <div class="creator-row">
+                <div class="creator"><div class="creator-avatar">m</div><div><div class="creator-name">moonlight sounds</div><div class="creator-subs">구독자 28.4만명</div></div><button class="subscribe">구독</button></div>
+                <div style="color:#444;font-size:12px">👍 2.1만　↗ 공유　⋯</div>
+              </div>
+              <div class="video-description"><b>조회수 84만회 · 2주 전</b><br>오늘 하루도 수고했어요. 편안한 밤 보내세요. 이어폰을 끼고 창밖을 바라보며 들어보세요 🌃</div>
+            </section>
+            <aside class="recommendations">
+              <div class="recommend-card"><div class="recommend-thumb">여행 브이로그</div><div><strong>비 오는 날 혼자 떠난 바닷가 여행</strong><small>느린 하루 · 조회수 12만회</small></div></div>
+              <div class="recommend-card"><div class="recommend-thumb">☕ 카페 재즈</div><div><strong>집중이 잘 되는 카페 재즈 3시간</strong><small>daily playlist · 조회수 230만회</small></div></div>
+              <div class="recommend-card"><div class="recommend-thumb">산책하는 고양이</div><div><strong>고양이와 함께 보내는 평화로운 오후</strong><small>작은 정원 · 조회수 8.7만회</small></div></div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="site-view" id="wikiView" hidden>
+      <header class="wiki-header"><div class="wiki-logo">namu.wiki</div><input class="wiki-search" placeholder="나무위키에서 검색" aria-label="나무위키에서 검색"><span style="color:#68717a;font-size:12px">로그인</span></header>
+      <nav class="wiki-nav"><span>최근 변경</span><span>최근 토론</span><span>특수 기능</span><span>도구</span></nav>
+      <div class="wiki-main" id="wikiMain">
+        <article class="wiki-article" id="wikiArticle">
+          <h1 id="wikiTitle">인터넷</h1>
+          <div class="wiki-meta">최근 수정 시각: 2026-10-28 21:14:03 · 편집 제안</div>
+          <div class="wiki-toc"><strong>목차</strong>1. 개요<br>2. 역사<br>3. 특징<br>4. 관련 문서</div>
+          <p id="wikiParagraph"><span class="wiki-link">인터넷</span>은 컴퓨터로 연결하여 TCP/IP 프로토콜을 이용해 정보를 주고받는 컴퓨터 네트워크이다. 전 세계의 수많은 컴퓨터 네트워크가 연결된 하나의 거대한 네트워크를 의미한다.</p>
+          <div class="wiki-corruption" id="wikiCorruption">⚠ 문서가 광고에 오염되었습니다. 양옆의 광고를 닫아 원래 내용을 복구하세요.</div>
+          <h2>1. 개요</h2>
+          <p>인터넷은 다양한 정보와 서비스를 제공하며, 웹 브라우저를 통해 문서와 미디어를 이용할 수 있다. 사용자는 링크를 따라 관련된 문서를 찾아볼 수 있다.</p>
+          <h2>2. 역사</h2>
+          <p>초기 네트워크 연구에서 시작하여 오늘날에는 전 세계 사람들이 일상적으로 사용하는 기반 시설이 되었다.</p>
+          <h2>3. 특징</h2>
+          <p>개방성과 분산 구조를 바탕으로 정보 공유와 소통을 가능하게 한다. 수많은 웹사이트가 각자의 방식으로 정보를 제공한다.</p>
+        </article>
+        <div id="wikiAds" aria-live="polite"></div>
+      </div>
+    </section>
+  </main>
+
+  <aside class="survival-hud" id="survivalHud" aria-label="게임 상태">
+    <div class="hud-chip hud-health"><small>브라우저 HP</small><b><span id="healthText">100</span>%</b><div class="hud-progress"><i id="healthBar"></i></div></div>
+    <div class="hud-chip"><small>점수</small><b id="scoreText">0000</b></div>
+    <div class="hud-chip"><small>레벨</small><b id="levelText">01</b></div>
+    <div class="hud-chip hud-xp"><small>경험치</small><b id="expText">0/5</b><div class="hud-progress"><i id="expBar"></i></div></div>
+  </aside>
+  <div class="game-message" id="gameMessage" aria-live="polite"></div>
+  <div class="toast" id="toast"></div>
+  <section class="end-screen" id="endScreen" hidden>
+    <div class="end-card"><h2 id="endTitle">브라우저가 멈췄습니다</h2><p id="endText"></p><button id="restartButton" type="button">다시 둘러보기</button></div>
+  </section>
+
+  <script>
+    (() => {
+      "use strict";
+      const $ = (selector) => document.querySelector(selector);
+      const youtubeTab = $("#youtubeTab");
+      const wikiTab = $("#wikiTab");
+      const youtubeView = $("#youtubeView");
+      const wikiView = $("#wikiView");
+      const videoPlayer = $("#videoPlayer");
+      const wikiAds = $("#wikiAds");
+      const originalWikiParagraph = $("#wikiParagraph").innerHTML;
+      const state = {
+        map: "youtube", active: false, mapInvasionActive: false, videoPlaying: false, manualPaused: false,
+        health: 100, score: 0, level: 1, exp: 0, expNeeded: 5, videoSeconds: 0,
+        adId: 0, currentVideoAd: null, wikiCorrupted: false, timers: new Set(),
+        intervals: new Set(), audio: null
+      };
+
+      function later(callback, delay) {
+        const timer = window.setTimeout(() => {
+          state.timers.delete(timer);
+          callback();
+        }, delay);
+        state.timers.add(timer);
+        return timer;
+      }
+
+      function updateHud() {
+        $("#healthText").textContent = state.health;
+        $("#healthBar").style.width = `${state.health}%`;
+        $("#scoreText").textContent = String(state.score).padStart(4, "0");
+        $("#levelText").textContent = String(state.level).padStart(2, "0");
+        $("#expText").textContent = `${state.exp}/${state.expNeeded}`;
+        $("#expBar").style.width = `${state.exp / state.expNeeded * 100}%`;
+      }
+
+      function say(message) { $("#gameMessage").textContent = message; }
+
+      function sound(frequency = 390) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+          state.audio ||= new AudioContext();
+          if (state.audio.state === "suspended") state.audio.resume();
+          const oscillator = state.audio.createOscillator();
+          const gain = state.audio.createGain();
+          oscillator.type = "square";
+          oscillator.frequency.setValueAtTime(frequency, state.audio.currentTime);
+          oscillator.frequency.exponentialRampToValueAtTime(Math.max(100, frequency / 2), state.audio.currentTime + .09);
+          gain.gain.setValueAtTime(.035, state.audio.currentTime);
+          gain.gain.exponentialRampToValueAtTime(.001, state.audio.currentTime + .1);
+          oscillator.connect(gain);
+          gain.connect(state.audio.destination);
+          oscillator.start();
+          oscillator.stop(state.audio.currentTime + .1);
+        } catch (error) {
+          console.warn("효과음을 재생하지 못했습니다.", error);
+        }
+      }
+
+      function flashPage() {
+        document.body.classList.remove("invasion-flash");
+        void document.body.offsetWidth;
+        document.body.classList.add("invasion-flash");
+      }
+
+      function award(points = 100, xp = 1) {
+        state.score += points;
+        state.exp += xp;
+        if (state.exp >= state.expNeeded) {
+          state.exp -= state.expNeeded;
+          state.level += 1;
+          state.expNeeded = Math.ceil(state.expNeeded * 1.35);
+          const toast = $("#toast");
+          toast.textContent = `LEVEL ${state.level} · 광고 정리 능력이 강화되었습니다`;
+          toast.classList.remove("show");
+          void toast.offsetWidth;
+          toast.classList.add("show");
+          sound(720);
+        }
+        updateHud();
+      }
+
+      function endGame(won = false) {
+        state.active = false;
+        state.mapInvasionActive = false;
+        state.videoPlaying = false;
+        state.manualPaused = false;
+        state.currentVideoAd = null;
+        state.timers.forEach(window.clearTimeout);
+        state.intervals.forEach(window.clearInterval);
+        state.timers.clear();
+        state.intervals.clear();
+        videoPlayer.classList.remove("is-playing");
+        $("#videoPlay").textContent = "▶";
+        $("#endTitle").textContent = won ? "브라우저를 지켰습니다!" : "브라우저가 멈췄습니다";
+        $("#endText").innerHTML = `최종 점수 <b>${state.score}</b> · 레벨 <b>${state.level}</b><br>다른 사이트 탭을 열어 다시 도전해 보세요.`;
+        $("#endScreen").hidden = false;
+        $("#survivalHud").classList.remove("active");
+        say(won ? "이 페이지의 광고 몬스터를 모두 물리쳤습니다." : "광고가 브라우저를 점령했습니다.");
+      }
+
+      function takeDamage(points, message) {
+        if (!state.active) return;
+        state.health = Math.max(0, state.health - points);
+        updateHud();
+        say(message);
+        sound(155);
+        flashPage();
+        if (state.health <= 0) endGame();
+      }
+
+      function resetSession() {
+        state.timers.forEach(window.clearTimeout);
+        state.intervals.forEach(window.clearInterval);
+        state.timers.clear();
+        state.intervals.clear();
+        state.active = false;
+        state.mapInvasionActive = false;
+        state.videoPlaying = false;
+        state.manualPaused = false;
+        state.currentVideoAd = null;
+        state.health = 100;
+        state.score = 0;
+        state.level = 1;
+        state.exp = 0;
+        state.expNeeded = 5;
+        state.videoSeconds = 0;
+        state.wikiCorrupted = false;
+        $("#videoTime").textContent = "0:00";
+        $("#videoProgress").style.width = "0%";
+        $("#wikiParagraph").innerHTML = originalWikiParagraph;
+        $("#wikiArticle").classList.remove("corrupted");
+        wikiAds.replaceChildren();
+        videoPlayer.querySelector(".video-ad")?.remove();
+        $("#endScreen").hidden = true;
+        $("#survivalHud").classList.remove("active");
+        videoPlayer.classList.remove("is-playing");
+        $("#videoPlay").textContent = "▶";
+        updateHud();
+      }
+
+      function beginInvasion(map, surprise = false) {
+        if (state.map !== map || state.mapInvasionActive) return;
+        state.active = true;
+        state.mapInvasionActive = true;
+        $("#survivalHud").classList.add("active");
+        say(map === "youtube"
+          ? "광고가 영상을 멈췄습니다 · 건너뛰기 버튼을 찾아 클릭하세요"
+          : "양옆의 광고가 문서를 덮기 시작했습니다 · 광고의 ×를 닫으세요");
+        if (surprise) flashPage();
+        if (map === "youtube") spawnVideoAd();
+        else spawnWikiWave();
+      }
+
+      function showMap(map) {
+        if (state.map === map) return;
+        const resumeRun = state.active;
+        state.timers.forEach(window.clearTimeout);
+        state.intervals.forEach(window.clearInterval);
+        state.timers.clear();
+        state.intervals.clear();
+        state.mapInvasionActive = false;
+        state.videoPlaying = false;
+        state.manualPaused = false;
+        state.currentVideoAd = null;
+        videoPlayer.querySelector(".video-ad")?.remove();
+        wikiAds.replaceChildren();
+        $("#wikiTitle").textContent = "인터넷";
+        $("#wikiParagraph").innerHTML = originalWikiParagraph;
+        $("#wikiArticle").classList.remove("corrupted");
+        state.wikiCorrupted = false;
+        state.map = map;
+        const isYoutube = map === "youtube";
+        youtubeView.hidden = !isYoutube;
+        wikiView.hidden = isYoutube;
+        youtubeTab.classList.toggle("active", isYoutube);
+        wikiTab.classList.toggle("active", !isYoutube);
+        $("#addressText").textContent = isYoutube ? "youtube.com/watch?v=quiet-morning" : "namu.wiki/w/인터넷";
+        document.title = isYoutube ? "YouTube" : "인터넷 - 나무위키";
+        say("");
+        $("#survivalHud").classList.toggle("active", resumeRun);
+        if (isYoutube && resumeRun) {
+          state.videoPlaying = true;
+          videoPlayer.classList.add("is-playing");
+          $("#videoPlay").textContent = "Ⅱ";
+          later(() => beginInvasion("youtube", true), 1700);
+        } else if (!isYoutube) {
+          later(() => beginInvasion("wiki", true), resumeRun ? 1700 : 2300);
+        }
+      }
+
+      function startVideo() {
+        if (state.videoPlaying || state.active) return;
+        state.videoPlaying = true;
+        state.manualPaused = false;
+        videoPlayer.classList.add("is-playing");
+        $("#videoPlay").textContent = "Ⅱ";
+        later(() => beginInvasion("youtube", true), 2100);
+      }
+
+      function toggleVideo() {
+        if (!state.videoPlaying) {
+          startVideo();
+          return;
+        }
+        if (state.currentVideoAd) return;
+        state.manualPaused = !state.manualPaused;
+        $("#videoPlay").textContent = state.manualPaused ? "▶" : "Ⅱ";
+        if (state.manualPaused && state.active) {
+          say("영상이 멈췄습니다 · 5초 이상 방치하면 브라우저가 손상됩니다");
+          later(() => {
+            if (state.active && state.manualPaused) {
+              takeDamage(12, "영상을 오래 멈춰 두어 시청 세션이 만료되었습니다!");
+            }
+          }, 5000);
+        } else {
+          say("");
+        }
+      }
+
+      function spawnVideoAd() {
+        if (!state.active || state.map !== "youtube" || state.currentVideoAd) return;
+        const id = ++state.adId;
+        state.currentVideoAd = { id, seconds: 7, skipReady: false };
+        videoPlayer.classList.remove("is-playing");
+        $("#videoPlay").textContent = "▶";
+        const ad = document.createElement("div");
+        ad.className = "video-ad";
+        ad.innerHTML = `
+          <div class="video-ad-copy">
+            <div class="video-ad-label">광고 · 스폰서</div>
+            <h2 class="video-ad-title">잠깐! 오늘만 특별한 혜택</h2>
+            <p>이 영상은 광고 후 계속 재생됩니다.</p>
+          </div>
+          <button class="skip-ad" type="button" disabled>건너뛰기까지 2초</button>
+          <span class="ad-countdown">광고 대기 ${state.currentVideoAd.seconds}초</span>`;
+        videoPlayer.append(ad);
+        const skipButton = ad.querySelector(".skip-ad");
+        skipButton.addEventListener("click", () => dismissVideoAd(id));
+        say("앗, 광고가 영상 위에 나타났습니다. 건너뛰기가 활성화되면 눌러 보세요.");
+
+        const timer = window.setInterval(() => {
+          if (!state.active || state.currentVideoAd?.id !== id) {
+            window.clearInterval(timer);
+            state.intervals.delete(timer);
+            return;
+          }
+          state.currentVideoAd.seconds -= 1;
+          ad.querySelector(".ad-countdown").textContent = `광고 대기 ${state.currentVideoAd.seconds}초`;
+          if (!state.currentVideoAd.skipReady && state.currentVideoAd.seconds <= 5) {
+            state.currentVideoAd.skipReady = true;
+            skipButton.disabled = false;
+            skipButton.textContent = "광고 건너뛰기　›";
+          }
+          if (state.currentVideoAd.seconds <= 0) {
+            window.clearInterval(timer);
+            state.intervals.delete(timer);
+            takeDamage(18, "광고를 방치해 영상이 멈췄습니다! 남은 광고도 건너뛰세요.");
+            dismissVideoAd(id, false);
+          }
+        }, 1000);
+        state.intervals.add(timer);
+      }
+
+      function dismissVideoAd(id, reward = true) {
+        if (state.currentVideoAd?.id !== id) return;
+        const ad = videoPlayer.querySelector(".video-ad");
+        if (!state.currentVideoAd.skipReady && reward) return;
+        state.intervals.forEach((timer) => window.clearInterval(timer));
+        state.intervals.clear();
+        state.currentVideoAd = null;
+        ad?.remove();
+        if (reward) {
+          award();
+          sound(520);
+          say("광고를 건너뛰었습니다 · 영상 재생 중");
+        }
+        if (!state.manualPaused && state.active) {
+          state.videoPlaying = true;
+          videoPlayer.classList.add("is-playing");
+          $("#videoPlay").textContent = "Ⅱ";
+        }
+        later(() => {
+          if (state.active && state.map === "youtube" && !state.currentVideoAd && !state.manualPaused) spawnVideoAd();
+        }, 14000);
+      }
+
+      function corruptArticle() {
+        if (!state.active || state.map !== "wiki" || state.wikiCorrupted) return;
+        state.wikiCorrupted = true;
+        $("#wikiTitle").textContent = "무료 상품 당첨 안내";
+        $("#wikiParagraph").textContent = "축하합니다! 이 문서는 보안 오류로 수정되었습니다. 지금 바로 버튼을 눌러 상품을 확인하세요.";
+        $("#wikiArticle").classList.add("corrupted");
+        wikiAds.querySelectorAll(".wiki-side-ad").forEach((ad) => ad.classList.add("corrupting"));
+        takeDamage(16, "광고가 문서 내용을 바꿨습니다! 양쪽 광고를 모두 닫으세요.");
+      }
+
+      function restoreArticle() {
+        if (!state.wikiCorrupted || wikiAds.querySelector(".wiki-side-ad")) return;
+        state.wikiCorrupted = false;
+        $("#wikiTitle").textContent = "인터넷";
+        $("#wikiParagraph").innerHTML = originalWikiParagraph;
+        $("#wikiArticle").classList.remove("corrupted");
+        say("문서가 복구되었습니다. 다음 광고를 조심하세요.");
+      }
+
+      function closeWikiAd(ad) {
+        if (!ad?.isConnected) return;
+        ad.remove();
+        award();
+        sound(470);
+        restoreArticle();
+        if (state.active && state.map === "wiki" && !wikiAds.querySelector(".wiki-side-ad")) {
+          say("광고를 모두 닫았습니다 · 문서를 읽을 수 있습니다");
+          later(() => {
+            if (state.active && state.map === "wiki" && !wikiAds.querySelector(".wiki-side-ad")) spawnWikiWave();
+          }, 9500);
+        }
+      }
+
+      function spawnWikiWave() {
+        if (!state.active || state.map !== "wiki" || wikiAds.querySelector(".wiki-side-ad")) return;
+        const entries = [
+          { side: "left", title: "문서 열람 최적화", copy: "더 빠른 검색을 위한 필수 업데이트를 확인하세요." },
+          { side: "right", title: "축하합니다, 당첨!", copy: "지금 확인하지 않으면 혜택이 사라집니다." }
+        ];
+        entries.forEach((entry, index) => {
+          const ad = document.createElement("aside");
+          ad.className = `wiki-side-ad ${entry.side}`;
+          ad.innerHTML = `<div class="wiki-ad-head"><span>광고 · 추천 정보</span><button type="button" aria-label="광고 닫기">×</button></div><strong>${entry.title}</strong><p>${entry.copy}</p><span class="wiki-ad-cta">자세히 보기　›</span>`;
+          wikiAds.append(ad);
+          ad.querySelector("button").addEventListener("click", () => closeWikiAd(ad));
+          later(() => {
+            if (ad.isConnected && state.active && state.map === "wiki") {
+              corruptArticle();
+              ad.classList.add("corrupting");
+            }
+          }, 7800 + index * 1100);
+        });
+        say("나무위키 양옆에 광고가 나타났습니다 · ×를 눌러 문서를 지키세요");
+      }
+
+      const videoTimer = window.setInterval(() => {
+        if (!state.active || state.map !== "youtube" || !state.videoPlaying || state.currentVideoAd || state.manualPaused) return;
+        state.videoSeconds += 1;
+        const minutes = Math.floor(state.videoSeconds / 60);
+        const seconds = String(state.videoSeconds % 60).padStart(2, "0");
+        $("#videoTime").textContent = `${minutes}:${seconds}`;
+        $("#videoProgress").style.width = `${Math.min(state.videoSeconds / 760 * 100, 100)}%`;
+      }, 1000);
+
+      youtubeTab.addEventListener("click", () => showMap("youtube"));
+      wikiTab.addEventListener("click", () => showMap("wiki"));
+      $("#videoPlay").addEventListener("click", toggleVideo);
+      videoPlayer.addEventListener("click", (event) => {
+        if (event.target === videoPlayer || event.target.classList.contains("video-scene")) toggleVideo();
+      });
+      $("#ytSearch").addEventListener("submit", (event) => event.preventDefault());
+      $("#restartButton").addEventListener("click", () => {
+        resetSession();
+        $("#gameMessage").textContent = "";
+      });
+      updateHud();
+    })();
+  </script>
+</body>
+</html>
